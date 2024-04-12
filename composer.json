@@ -17,6 +17,7 @@
     "homepage": "https://github.com/ispahbod/http-manager",
     "require": {
         "php": "^8.2",
+        "guzzlehttp/guzzle": "^7.8",
         "illuminate/support": ">=6"
     },
     "require-dev": {
