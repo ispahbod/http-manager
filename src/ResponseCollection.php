@@ -10,10 +10,17 @@ use ArrayIterator;
 class ResponseCollection implements Countable, IteratorAggregate
 {
     protected array $responses = [];
+    protected float $executionTime = 0.0;
 
     public function add(HttpResponse $response): self
     {
         $this->responses[] = $response;
+        return $this;
+    }
+
+    public function addExecutionTime(float $executionTime): self
+    {
+        $this->executionTime = $executionTime;
         return $this;
     }
 
@@ -64,5 +71,10 @@ class ResponseCollection implements Countable, IteratorAggregate
         return $this->filterResponses(function ($response) {
             return $response->getStatusCode() >= 400;
         });
+    }
+
+    public function getExecutionTime(): float
+    {
+        return $this->executionTime;
     }
 }
