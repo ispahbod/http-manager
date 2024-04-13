@@ -2,58 +2,68 @@
 
 namespace Ispahbod\HttpManager;
 
-use GuzzleHttp\Client;
+use GuzzleHttp\Client as HttpClient;
 use GuzzleHttp\Exception\GuzzleException;
-use GuzzleHttp\Promise\Utils;
-use GuzzleHttp\Psr7\Response;
+use GuzzleHttp\Promise\Utils as PromiseUtils;
+use GuzzleHttp\Psr7\Response as HttpResponse;
 
-class HttpManager
+class RequestManager
 {
-    protected Client $client;
-    protected array $queues = [];
+    protected HttpClient $httpClient;
+    protected array $requestQueue = [];
 
     public function __construct()
     {
-        $this->client = new Client();
+        $this->httpClient = new HttpClient();
     }
 
-    public function queue($method, $url, $options = []): self
+    public function addToQueue($httpMethod, $requestUrl, $requestOptions = []): self
     {
-        $this->queues[] = [
-            'method' => $method,
-            'url' => $url,
-            'options' => $options,
+        $this->requestQueue[] = [
+            'method' => $httpMethod,
+            'url' => $requestUrl,
+            'options' => $requestOptions,
         ];
         return $this;
     }
 
-    public function sendSync(): array
+    public function executeSingleRequest($httpMethod, $requestUrl, $requestOptions = []): HttpResponse
     {
-        $responses = [];
-        foreach ($this->queues as $request) {
-            try {
-                $response = $this->client->request($request['method'], $request['url'], $request['options']);
-                $responses[] = $response;
-            } catch (GuzzleException $e) {
-                $responses[] = new Response(400, [], $e->getMessage());
-            }
+        try {
+            $response = $this->httpClient->request($httpMethod, $requestUrl, $requestOptions);
+            return new HttpResponse($response->getStatusCode(), $response->getHeaders(), $response->getBody());
+        } catch (GuzzleException $exception) {
+            return new HttpResponse(400, [], $exception->getMessage());
         }
-        $this->queues = []; 
-        return $responses;
+    }
+    public function executeSynchronousRequests(): ResponseCollection
+    {
+        $collectedResponses = new ResponseCollection();
+        foreach ($this->requestQueue as $queuedRequest) {
+            $response = $this->executeSingleRequest($queuedRequest['method'], $queuedRequest['url'], $queuedRequest['options']);
+            $collectedResponses->add($response);
+        }
+        $this->requestQueue = [];
+        return $collectedResponses;
     }
 
-    public function sendAsync(): array
+    public function executeAsynchronousRequests(): ResponseCollection
     {
-        $promises = [];
-        foreach ($this->queues as $request) {
-            $promises[] = $this->client->requestAsync($request['method'], $request['url'], $request['options']);
+        $promiseQueue = [];
+        foreach ($this->requestQueue as $queuedRequest) {
+            $promiseQueue[] = $this->httpClient->requestAsync($queuedRequest['method'], $queuedRequest['url'], $queuedRequest['options']);
         }
+        $collectedResponses = new ResponseCollection();
         try {
-            $responses = Utils::unwrap($promises);
-        } catch (GuzzleException $e) {
-            $responses = [new Response(400, [], $e->getMessage())];
+            $responses = PromiseUtils::unwrap($promiseQueue);
+            foreach ($responses as $response) {
+                $formattedResponse = new HttpResponse($response->getStatusCode(), $response->getHeaders(), $response->getBody());
+                $collectedResponses->add($formattedResponse);
+            }
+        } catch (GuzzleException $exception) {
+            $collectedResponses->add(new HttpResponse(400, [], $exception->getMessage()));
         }
-        $this->queues = []; 
-        return $responses;
+        $this->requestQueue = [];
+        return $collectedResponses;
     }
 }
