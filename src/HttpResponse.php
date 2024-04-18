@@ -119,7 +119,11 @@ class HttpResponse
         }
         return $this->body;
     }
-
+    public function getContentArray(): array {
+        $content = $this->getContent();
+        $decodedContent = json_decode($content, true);
+        return is_array($decodedContent) ? $decodedContent : [];
+    }
     public function createCrawler(): ?Crawler
     {
         if ($this->isHtmlResponse()) {
