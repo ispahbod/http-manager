@@ -52,6 +52,15 @@ class HttpManager
             return new HttpResponse(400, [], $exception->getMessage(), $executionTime);
         }
     }
+
+    public function executeSinglePostRequest($requestUrl, $requestOptions = []): HttpResponse
+    {
+      return  $this->executeSingleRequest('post',$requestUrl,$requestOptions);
+    }
+    public function executeSingleGetRequest($requestUrl, $requestOptions = []): HttpResponse
+    {
+      return  $this->executeSingleRequest('get',$requestUrl,$requestOptions);
+    }
     public function executeSynchronousRequests(): ResponseCollection
     {
         $startTime = microtime(true);
